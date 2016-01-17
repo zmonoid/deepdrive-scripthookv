@@ -30,3 +30,6 @@
 # Visual Studio
 *.sdf
 *.opensdf
+
+# Dropbox
+*.dropbox
