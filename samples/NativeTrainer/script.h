@@ -19,7 +19,7 @@ void ScriptMain();
 
 void AlignCameraLoop();
 
-void DetectRoad();
+void AgentCom();
 
 void PresentHooky(void *swapChain);
 

@@ -46,6 +46,8 @@ Ped playerPed;
 bool shouldRunAlignCam = false;
 bool shouldDetectRoad = false;
 
+bool showStatus = false;
+
 thread *alignCameraThread;
 
 #define SafeRelease(var) if(var) {var->Release(); var = NULL;}
@@ -70,8 +72,9 @@ int cq_width;
 #define REWARD_SHARED_MEMORY TEXT("Local\\AgentReward")
 struct SharedRewardData
 {
-	FLOAT distance;
+	INT32 distance; // INT32 because we are sharing between 32 and 64 bit processes.
 	bool on_road;
+	bool reset_agent_position;
 };
 
 HANDLE rewardFileMap;
@@ -1623,10 +1626,18 @@ void process_veh_menu()
 					break;
 				case 8:
 					// self driving car "SELF DRIVING"
+//					PLAYER::SET_ALL_RANDOM_PEDS_FLEE(player, true);
+					PLAYER::SET_EVERYONE_IGNORE_PLAYER(player, true);
+					showStatus = ! showStatus;
+//					PLAYER::SET_ALL_RANDOM_PEDS_FLEE_THIS_FRAME(player);
 					if (bPlayerExists && PED::IS_PED_IN_ANY_VEHICLE(playerPed, 0))
 					{
 						vehicle = PED::GET_VEHICLE_PED_IS_USING(playerPed);
 						DWORD model = ENTITY::GET_ENTITY_MODEL(vehicle);
+
+
+
+						set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
 
 						bool useHoodCam = true;
 
@@ -2630,38 +2641,68 @@ float CHILIAD_X = 1722.844727;
 float CHILIAD_Y = 6407.962891;
 float CHILIAD_Z = 33.628269;
 
+bool firstRun = true;
+
 // Mount Chiliad 247 Supermarket: x: 1722.844727  y:  6407.962891  z: 33.628269
 // Franklin's street:              x:  -23.898239  y: -1439.207520  z: 30.273796
 
-void DetectRoad()
+void AgentCom()
 {
 	SharedRewardData* shared_reward_memory;
 	InitializeSharedRewardMemory(&shared_reward_memory);
+	set_status_text("initialized shared memory");
 	while(shouldDetectRoad)
 	{
 		WAIT(10);
 
 		if(vehicle == -1)
 		{
-			set_status_text("get a ride");
+			//set_status_text("get a ride");
+		}
+		else if(firstRun || shared_reward_memory->reset_agent_position)
+		{
+			firstRun = false;
+			ENTITY::SET_ENTITY_COORDS_NO_OFFSET(PLAYER::PLAYER_PED_ID(), 2038.885986, 3754.751465, 31.947712, 0, 0, 1);
+			DWORD model = GAMEPLAY::GET_HASH_KEY((char *)"NINEF");
+			if (STREAMING::IS_MODEL_IN_CDIMAGE(model) && STREAMING::IS_MODEL_A_VEHICLE(model))
+			{
+				STREAMING::REQUEST_MODEL(model);				
+				while (!STREAMING::HAS_MODEL_LOADED(model)) WAIT(0);
+				Vector3 coords = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0.0, 5.0, 0.0);
+				vehicle = VEHICLE::CREATE_VEHICLE(model, coords.x, coords.y, coords.z, 0.0, 1, 1);
+				VEHICLE::SET_VEHICLE_ON_GROUND_PROPERLY(vehicle);
+
+				ENTITY::SET_ENTITY_HEADING(vehicle, ENTITY::GET_ENTITY_HEADING(PLAYER::PLAYER_PED_ID()));
+				PED::SET_PED_INTO_VEHICLE(PLAYER::PLAYER_PED_ID(), vehicle, -1);
+
+				WAIT(0);
+				STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(model);
+				//ENTITY::SET_VEHICLE_AS_NO_LONGER_NEEDED(&vehicle);
+
+				ENTITY::SET_ENTITY_COORDS_NO_OFFSET(vehicle, 2038.885986, 3754.751465, 31.947712, 0, 0, 1);
+				ENTITY::SET_ENTITY_HEADING(vehicle, 209.866089);
+				(*shared_reward_memory).reset_agent_position = false;
+			}
 		}
 		else
 		{
 			Vector3 vehCoords = ENTITY::GET_ENTITY_COORDS(vehicle, true);
+			float heading = ENTITY::GET_ENTITY_HEADING(vehicle);
 			bool point_on_road = PATHFIND::IS_POINT_ON_ROAD(vehCoords.x, vehCoords.y, vehCoords.z, vehicle);
 			string status = "";
 			if(point_on_road)
 			{
-				status += "on road: yes ";
+				status += "on road: yes\n ";
 			}
 			else
 			{
-				status += "on road: no ";
+				status += "on road: no\n ";
 			}
 			
-//			status += "x" + std::to_string(vehCoords.x) +
-//					  "y" + std::to_string(vehCoords.y) +
-//					  "z" + std::to_string(vehCoords.z);
+			status += "x: " + std::to_string(vehCoords.x) + "\n" 
+					  "y: " + std::to_string(vehCoords.y) +	"\n" 
+					  "z: " + std::to_string(vehCoords.z) + "\n" 
+					  "h: " + std::to_string(heading)	  + "\n";
 			
 
 //			float distance = sqrt( pow(CHILIAD_X - vehCoords.x, 2) + 
@@ -2674,9 +2715,14 @@ void DetectRoad()
 				CHILIAD_X, CHILIAD_Y, CHILIAD_Z);
 
 			status += "distance: " + std::to_string(distance);
-			set_status_text(status);
 
-			(*shared_reward_memory).distance = distance;
+			if(showStatus)
+			{
+				set_status_text(status);				
+			}
+
+
+			(*shared_reward_memory).distance = int(distance);
 			(*shared_reward_memory).on_road = point_on_road;
 		}
 	}

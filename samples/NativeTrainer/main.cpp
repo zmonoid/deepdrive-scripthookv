@@ -19,7 +19,7 @@ BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
 	case DLL_PROCESS_ATTACH:
 		scriptRegister(hInstance, ScriptMain);
 //		scriptRegisterAdditionalThread(hInstance, AlignCameraLoop);
-		scriptRegisterAdditionalThread(hInstance, DetectRoad);
+		scriptRegisterAdditionalThread(hInstance, AgentCom);
 //		presentCallbackRegister(PresentHooky);
 		keyboardHandlerRegister(OnKeyboardMessage);
 		break;
