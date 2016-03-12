@@ -44,7 +44,7 @@ int vehicle = -1;
 Ped playerPed;
 
 bool shouldRunAlignCam = false;
-bool shouldDetectRoad = false;
+bool shouldSelfDrive = false;
 
 bool showStatus = false;
 
@@ -70,11 +70,16 @@ int cq_width;
 // Reward shared memory
 
 #define REWARD_SHARED_MEMORY TEXT("Local\\AgentReward")
+
 struct SharedRewardData
 {
-	INT32 distance; // INT32 because we are sharing between 32 and 64 bit processes.
+	double distance; // INT32 because we are sharing between 32 and 64 bit processes.
 	bool on_road;
-	bool reset_agent_position;
+	bool should_reset_agent;
+	double heading;
+	double speed;
+	double desired_heading;
+	double desired_speed;
 };
 
 HANDLE rewardFileMap;
@@ -105,7 +110,9 @@ void InitializeSharedRewardMemory(SharedRewardData **rewardData)
     }
 
     *rewardData = reinterpret_cast<SharedRewardData*>(lpRewardSharedMemory);
-//    (*rewardData)->frameTime = 0;
+    (*rewardData)->should_reset_agent = true;
+    (*rewardData)->desired_speed = -8192;
+    (*rewardData)->desired_heading = -8192;
 
 }
 
@@ -1627,17 +1634,18 @@ void process_veh_menu()
 				case 8:
 					// self driving car "SELF DRIVING"
 //					PLAYER::SET_ALL_RANDOM_PEDS_FLEE(player, true);
-					PLAYER::SET_EVERYONE_IGNORE_PLAYER(player, true);
+					
 					showStatus = ! showStatus;
+					set_status_text("Toggling stats");
 //					PLAYER::SET_ALL_RANDOM_PEDS_FLEE_THIS_FRAME(player);
 					if (bPlayerExists && PED::IS_PED_IN_ANY_VEHICLE(playerPed, 0))
 					{
-						vehicle = PED::GET_VEHICLE_PED_IS_USING(playerPed);
+						
 						DWORD model = ENTITY::GET_ENTITY_MODEL(vehicle);
 
 
 
-						set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
+						//set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
 
 						bool useHoodCam = true;
 
@@ -2318,7 +2326,7 @@ void reset_globals()
 
 	shouldRunAlignCam = true;
 
-	shouldDetectRoad = true;
+	shouldSelfDrive = true;
 }
 
 void main()
@@ -2343,7 +2351,7 @@ void main()
 void Cleanup()
 {
 	shouldRunAlignCam = false;
-	shouldDetectRoad = false;
+	shouldSelfDrive = false;
 //	(*alignCameraThread).join();
 //	delete alignCameraThread;
 }
@@ -2641,55 +2649,157 @@ float CHILIAD_X = 1722.844727;
 float CHILIAD_Y = 6407.962891;
 float CHILIAD_Z = 33.628269;
 
-bool firstRun = true;
+double TREVOR_ROAD_END_X = 2054.696533;
+double TREVOR_ROAD_END_Y = 3729.036133;
+double TREVOR_ROAD_END_Z = 32.656715;
+
+bool should_reset = true;
 
 // Mount Chiliad 247 Supermarket: x: 1722.844727  y:  6407.962891  z: 33.628269
 // Franklin's street:              x:  -23.898239  y: -1439.207520  z: 30.273796
+
 
 void AgentCom()
 {
 	SharedRewardData* shared_reward_memory;
 	InitializeSharedRewardMemory(&shared_reward_memory);
 	set_status_text("initialized shared memory");
-	while(shouldDetectRoad)
+	Player player_id;
+	Ped player_ped;
+	int vehicle = -1;
+	int new_vehicle = -1;
+	long long iter = 0;
+	int control = 0;
+
+	while(shouldSelfDrive)
 	{
 		WAIT(10);
 
-		if(vehicle == -1)
+		if(iter % 100 == 0)
 		{
-			//set_status_text("get a ride");
+			new_vehicle = PED::GET_VEHICLE_PED_IS_USING(PLAYER::PLAYER_PED_ID());		
 		}
-		else if(firstRun || shared_reward_memory->reset_agent_position)
+
+		iter++;
+		
+		if(new_vehicle == 0)
 		{
-			firstRun = false;
-			ENTITY::SET_ENTITY_COORDS_NO_OFFSET(PLAYER::PLAYER_PED_ID(), 2038.885986, 3754.751465, 31.947712, 0, 0, 1);
-			DWORD model = GAMEPLAY::GET_HASH_KEY((char *)"NINEF");
-			if (STREAMING::IS_MODEL_IN_CDIMAGE(model) && STREAMING::IS_MODEL_A_VEHICLE(model))
+			set_status_text("get a ride");
+		}
+		else if(new_vehicle != vehicle)
+		{
+			set_status_text("new vehicle detected " + std::to_string(new_vehicle));
+			WAIT(3000); // Wait for player to enter
+			vehicle = new_vehicle;
+			should_reset = true;					
+		}
+		else if(should_reset || shared_reward_memory->should_reset_agent)
+		{
+			set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
+			should_reset = false;
+			player_id = PLAYER::PLAYER_ID();
+			player_ped = PLAYER::PLAYER_PED_ID();
+			vehicle = PED::GET_VEHICLE_PED_IS_USING(player_ped);
+			PLAYER::SET_EVERYONE_IGNORE_PLAYER(player_id, true);
+			PLAYER::SET_POLICE_IGNORE_PLAYER(player_id, featurePlayerIgnored);
+			PLAYER::CLEAR_PLAYER_WANTED_LEVEL(player_id); // Never wanted
+
+			// Put on seat belt
+			const int PED_FLAG_CAN_FLY_THRU_WINDSCREEN = 32;
+			if (PED::GET_PED_CONFIG_FLAG(player_ped, PED_FLAG_CAN_FLY_THRU_WINDSCREEN, TRUE))
 			{
-				STREAMING::REQUEST_MODEL(model);				
-				while (!STREAMING::HAS_MODEL_LOADED(model)) WAIT(0);
-				Vector3 coords = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0.0, 5.0, 0.0);
-				vehicle = VEHICLE::CREATE_VEHICLE(model, coords.x, coords.y, coords.z, 0.0, 1, 1);
-				VEHICLE::SET_VEHICLE_ON_GROUND_PROPERLY(vehicle);
-
-				ENTITY::SET_ENTITY_HEADING(vehicle, ENTITY::GET_ENTITY_HEADING(PLAYER::PLAYER_PED_ID()));
-				PED::SET_PED_INTO_VEHICLE(PLAYER::PLAYER_PED_ID(), vehicle, -1);
-
-				WAIT(0);
-				STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(model);
-				//ENTITY::SET_VEHICLE_AS_NO_LONGER_NEEDED(&vehicle);
-
-				ENTITY::SET_ENTITY_COORDS_NO_OFFSET(vehicle, 2038.885986, 3754.751465, 31.947712, 0, 0, 1);
-				ENTITY::SET_ENTITY_HEADING(vehicle, 209.866089);
-				(*shared_reward_memory).reset_agent_position = false;
+				PED::SET_PED_CONFIG_FLAG(player_ped, PED_FLAG_CAN_FLY_THRU_WINDSCREEN, FALSE);
 			}
+
+			// Invincible vehicle
+			VEHICLE::SET_VEHICLE_TYRES_CAN_BURST(vehicle, FALSE);
+			VEHICLE::SET_VEHICLE_WHEELS_CAN_BREAK(vehicle, FALSE);
+			VEHICLE::SET_VEHICLE_HAS_STRONG_AXLES(vehicle, TRUE);
+			VEHICLE::SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED(vehicle, FALSE);
+			ENTITY::SET_ENTITY_INVINCIBLE(vehicle, TRUE);
+			ENTITY::SET_ENTITY_PROOFS(vehicle, 1, 1, 1, 1, 1, 1, 1, 1);	
+
+			// Player invinsble
+			PLAYER::SET_PLAYER_INVINCIBLE(player_id, TRUE);
+
+			//AI::TASK_VEHICLE_DRIVE_WANDER(player_ped, vehicle, 20.0, 786667);
+
+			// Get change in heading so you can steer to match
+			// Get change in velocity so you can steer / brake to match
+
+			// ENTITY::GET_ENTITY_HEADING
+
+			// ENTITY::GET_ENTITY_VELOCITY
+
+			// Creates new vehicle and sets it in place. Now done by reloading saved game to reset world.
+//			ENTITY::SET_ENTITY_COORDS_NO_OFFSET(PLAYER::PLAYER_PED_ID(), 2038.885986, 3754.751465, 31.947712, 0, 0, 1);
+//			DWORD model = GAMEPLAY::GET_HASH_KEY((char *)"NINEF");
+//			if (STREAMING::IS_MODEL_IN_CDIMAGE(model) && STREAMING::IS_MODEL_A_VEHICLE(model))
+//			{
+//				STREAMING::REQUEST_MODEL(model);				
+//				while (!STREAMING::HAS_MODEL_LOADED(model)) WAIT(0);
+//				Vector3 coords = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0.0, 5.0, 0.0);
+//				vehicle = VEHICLE::CREATE_VEHICLE(model, coords.x, coords.y, coords.z, 0.0, 1, 1);
+//				VEHICLE::SET_VEHICLE_ON_GROUND_PROPERLY(vehicle);
+//
+//				ENTITY::SET_ENTITY_HEADING(vehicle, ENTITY::GET_ENTITY_HEADING(PLAYER::PLAYER_PED_ID()));
+//				PED::SET_PED_INTO_VEHICLE(PLAYER::PLAYER_PED_ID(), vehicle, -1);
+//
+//				WAIT(0);
+//				STREAMING::SET_MODEL_AS_NO_LONGER_NEEDED(model);
+//				//ENTITY::SET_VEHICLE_AS_NO_LONGER_NEEDED(&vehicle);
+//
+//				ENTITY::SET_ENTITY_COORDS_NO_OFFSET(vehicle, 2038.885986, 3754.751465, 31.947712, 0, 0, 1);
+//				ENTITY::SET_ENTITY_HEADING(vehicle, 209.866089);
+//				
+//			}
+			(*shared_reward_memory).should_reset_agent = false;
+			should_reset = false;
 		}
 		else
 		{
-			Vector3 vehCoords = ENTITY::GET_ENTITY_COORDS(vehicle, true);
-			float heading = ENTITY::GET_ENTITY_HEADING(vehicle);
-			bool point_on_road = PATHFIND::IS_POINT_ON_ROAD(vehCoords.x, vehCoords.y, vehCoords.z, vehicle);
+			auto horiz = CONTROLS::GET_CONTROL_VALUE(0, 9);
+			auto vertical = CONTROLS::GET_CONTROL_VALUE(0, 8);
+//			auto forward_test = ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle);
+//
 			string status = "";
+//			status += "x: " + std::to_string(forward_test.x) + "\n" 
+//					  "y: " + std::to_string(forward_test.y) + "\n" 
+//					  "z: " + std::to_string(forward_test.z) + "\n";
+//			set_status_text(status);
+
+//			set_status_text("control: " + std::to_string(horiz) + "\n");
+//			set_status_text("control: " + std::to_string(vertical) + "\n");
+
+//			CONTROLS::ENABLE_ALL_CONTROL_ACTIONS(17);
+//			CONTROLS::ENABLE_ALL_CONTROL_ACTIONS(18);
+//			CONTROLS::ENABLE_ALL_CONTROL_ACTIONS(19);
+//			CONTROLS::ENABLE_ALL_CONTROL_ACTIONS(20);
+//			CONTROLS::ENABLE_ALL_CONTROL_ACTIONS(21);
+//			CONTROLS::ENABLE_ALL_CONTROL_ACTIONS(22);
+//			CONTROLS::ENABLE_ALL_CONTROL_ACTIONS(23);
+//
+//			CONTROLS::_0xE8A25867FBA3B05E(0, 9, 0); // Set control normal
+//			CONTROLS::_0xE8A25867FBA3B05E(0, 8, 1); // Set control normal
+
+			Vector3 vehCoords = ENTITY::GET_ENTITY_COORDS(vehicle, true);
+			double heading = ENTITY::GET_ENTITY_HEADING(vehicle);
+			double speed = ENTITY::GET_ENTITY_SPEED(vehicle);
+			(*shared_reward_memory).heading = heading;
+			(*shared_reward_memory).speed = speed;
+
+//			if(shared_reward_memory->desired_heading > -128)
+//			{
+//				ENTITY::SET_ENTITY_HEADING(vehicle, shared_reward_memory->desired_heading);
+//			}
+
+//			auto forward_vector = ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle);
+//			if(shared_reward_memory->desired_speed > -128)
+//			{
+//				ENTITY::SET_ENTITY_VELOCITY(vehicle, forward_vector.x * 5, forward_vector.y * 5, forward_vector.z * 5);//6.918115, 3.922368, 0.065919);
+//			}
+
+			bool point_on_road = PATHFIND::IS_POINT_ON_ROAD(vehCoords.x, vehCoords.y, vehCoords.z, vehicle);
 			if(point_on_road)
 			{
 				status += "on road: yes\n ";
@@ -2705,14 +2815,15 @@ void AgentCom()
 					  "h: " + std::to_string(heading)	  + "\n";
 			
 
-//			float distance = sqrt( pow(CHILIAD_X - vehCoords.x, 2) + 
-//				  pow(CHILIAD_Y - vehCoords.y, 2) + 
-//				  pow(CHILIAD_Z - vehCoords.z, 2));
+			double distance = sqrt( pow(TREVOR_ROAD_END_X - double(vehCoords.x), 2) + 
+				  pow(TREVOR_ROAD_END_Y - double(vehCoords.y), 2) + 
+				  pow(TREVOR_ROAD_END_Z - double(vehCoords.z), 2));
 
 			// Doesn't return more than 100000.
-			float distance = PATHFIND::CALCULATE_TRAVEL_DISTANCE_BETWEEN_POINTS(
-				vehCoords.x, vehCoords.y, vehCoords.z,
-				CHILIAD_X, CHILIAD_Y, CHILIAD_Z);
+//			float distance = PATHFIND::CALCULATE_TRAVEL_DISTANCE_BETWEEN_POINTS(
+//				vehCoords.x, vehCoords.y, vehCoords.z,
+//				CHILIAD_X, CHILIAD_Y, CHILIAD_Z);
+
 
 			status += "distance: " + std::to_string(distance);
 
@@ -2722,7 +2833,7 @@ void AgentCom()
 			}
 
 
-			(*shared_reward_memory).distance = int(distance);
+			(*shared_reward_memory).distance = distance;
 			(*shared_reward_memory).on_road = point_on_road;
 		}
 	}
