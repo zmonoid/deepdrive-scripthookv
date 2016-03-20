@@ -78,8 +78,9 @@ struct SharedRewardData
 	bool should_reset_agent;
 	double heading;
 	double speed;
-	double desired_heading;
-	double desired_speed;
+	double desired_heading; // for directly setting heading, intermediate step to real control
+	double desired_speed; // for directly setting speed, intermediate step to real control
+	double rotational_velocity;
 };
 
 HANDLE rewardFileMap;
@@ -2695,13 +2696,13 @@ void AgentCom()
 		}
 		else if(should_reset || shared_reward_memory->should_reset_agent)
 		{
-			set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
+//			set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
 			should_reset = false;
 			player_id = PLAYER::PLAYER_ID();
 			player_ped = PLAYER::PLAYER_PED_ID();
 			vehicle = PED::GET_VEHICLE_PED_IS_USING(player_ped);
 			PLAYER::SET_EVERYONE_IGNORE_PLAYER(player_id, true);
-			PLAYER::SET_POLICE_IGNORE_PLAYER(player_id, featurePlayerIgnored);
+			PLAYER::SET_POLICE_IGNORE_PLAYER(player_id, true);
 			PLAYER::CLEAR_PLAYER_WANTED_LEVEL(player_id); // Never wanted
 
 			// Put on seat belt
@@ -2719,10 +2720,9 @@ void AgentCom()
 			ENTITY::SET_ENTITY_INVINCIBLE(vehicle, TRUE);
 			ENTITY::SET_ENTITY_PROOFS(vehicle, 1, 1, 1, 1, 1, 1, 1, 1);	
 
-			// Player invinsble
+			// Player invinsible
 			PLAYER::SET_PLAYER_INVINCIBLE(player_id, TRUE);
-
-			//AI::TASK_VEHICLE_DRIVE_WANDER(player_ped, vehicle, 20.0, 786667);
+//			AI::TASK_VEHICLE_DRIVE_WANDER(player_ped, vehicle, 20.0, 786667);
 
 			// Get change in heading so you can steer to match
 			// Get change in velocity so you can steer / brake to match
@@ -2785,6 +2785,9 @@ void AgentCom()
 			Vector3 vehCoords = ENTITY::GET_ENTITY_COORDS(vehicle, true);
 			double heading = ENTITY::GET_ENTITY_HEADING(vehicle);
 			double speed = ENTITY::GET_ENTITY_SPEED(vehicle);
+			
+			auto rotational_velocity = ENTITY::GET_ENTITY_ROTATION_VELOCITY(vehicle);
+
 			(*shared_reward_memory).heading = heading;
 			(*shared_reward_memory).speed = speed;
 
@@ -2792,7 +2795,7 @@ void AgentCom()
 //			{
 //				ENTITY::SET_ENTITY_HEADING(vehicle, shared_reward_memory->desired_heading);
 //			}
-
+//
 //			auto forward_vector = ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle);
 //			if(shared_reward_memory->desired_speed > -128)
 //			{
@@ -2809,10 +2812,13 @@ void AgentCom()
 				status += "on road: no\n ";
 			}
 			
-			status += "x: " + std::to_string(vehCoords.x) + "\n" 
-					  "y: " + std::to_string(vehCoords.y) +	"\n" 
-					  "z: " + std::to_string(vehCoords.z) + "\n" 
-					  "h: " + std::to_string(heading)	  + "\n";
+			status += "x: "  + std::to_string(vehCoords.x)            + "\n" 
+//					  "y: "  + std::to_string(vehCoords.y)            +	"\n" 
+//					  "z: "  + std::to_string(vehCoords.z)            + "\n" 
+					  "h: "  + std::to_string(heading)	              + "\n"
+					  "rx: " + std::to_string(rotational_velocity.x)  + "\n"
+					  "ry: " + std::to_string(rotational_velocity.y)  + "\n"
+					  "rz: " + std::to_string(rotational_velocity.z)  + "\n";
 			
 
 			double distance = sqrt( pow(TREVOR_ROAD_END_X - double(vehCoords.x), 2) + 
@@ -2835,6 +2841,7 @@ void AgentCom()
 
 			(*shared_reward_memory).distance = distance;
 			(*shared_reward_memory).on_road = point_on_road;
+			(*shared_reward_memory).rotational_velocity = rotational_velocity.z;
 		}
 	}
 }
