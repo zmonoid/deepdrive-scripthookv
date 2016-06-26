@@ -17,7 +17,6 @@
 
 #include "script.h"
 #include "keyboard.h"
-
 #include <string>
 #include <ctime>
 
@@ -37,7 +36,9 @@
 
 // thread example
 #include <thread>         // std::thread
- 
+#include <vector>
+#include <random>
+
 int activeLineIndexVeh = 0;
 DWORD lidarCam = NULL;
 int vehicle = -1;
@@ -46,7 +47,6 @@ Ped playerPed;
 bool shouldRunAlignCam = false;
 bool shouldSelfDrive = false;
 
-bool showStatus = false;
 
 thread *alignCameraThread;
 
@@ -73,18 +73,56 @@ int cq_width;
 
 struct SharedRewardData
 {
-	double distance; // INT32 because we are sharing between 32 and 64 bit processes.
+	double distance;
 	bool on_road;
 	bool should_reset_agent;
 	double heading;
 	double speed;
-	double desired_heading; // for directly setting heading, intermediate step to real control
+	double desired_spin; // for directly setting spin, intermediate step to real control
 	double desired_speed; // for directly setting speed, intermediate step to real control
-	double rotational_velocity;
+	double desired_speed_change; // for directly setting speed change, intermediate step to real control
+	double desired_direction;
+	double spin;
+	bool should_game_drive;
+	bool should_perform_random_action;
+	bool is_game_driving;
+	int temp_action;
 };
 
 HANDLE rewardFileMap;
 LPBYTE lpRewardSharedMemory = NULL;
+std::random_device random_seed;     // only used once to initialise (seed) engine
+std::mt19937 random_generator(random_seed());    // random-number engine used (Mersenne-Twister in this case)
+
+inline int get_random_int(int start, int end)
+{
+	std::random_device rd;     // only used once to initialise (seed) engine
+	std::uniform_int_distribution<int> uni(start, end); // guaranteed unbiased
+
+	auto random_integer = uni(random_generator);
+
+	return random_integer;
+}
+
+template<typename Iter, typename RandomGenerator>
+Iter select_randomly(Iter start, Iter end, RandomGenerator& g) {
+	std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
+	std::advance(start, dis(g));
+	return start;
+}
+
+template<typename Iter>
+Iter select_randomly(Iter start, Iter end) {
+	static std::random_device rd;
+	return select_randomly(start, end, random_generator);
+}
+
+inline double get_random_double(double start, double end)
+{
+	std::uniform_real_distribution<double> uni(start, end); // guaranteed unbiased
+	auto random_double = uni(random_generator);
+	return random_double;
+}
 
 void InitializeSharedRewardMemory(SharedRewardData **rewardData)
 {
@@ -113,7 +151,7 @@ void InitializeSharedRewardMemory(SharedRewardData **rewardData)
     *rewardData = reinterpret_cast<SharedRewardData*>(lpRewardSharedMemory);
     (*rewardData)->should_reset_agent = true;
     (*rewardData)->desired_speed = -8192;
-    (*rewardData)->desired_heading = -8192;
+    (*rewardData)->desired_spin = -8192;
 
 }
 
@@ -368,7 +406,8 @@ bool featureVehInvincibleWheelsUpdated	=	false;
 bool featureVehSeatbelt					=	false;
 bool featureVehSeatbeltUpdated			=	false;
 bool featureVehSpeedBoost				=	false;
-bool featureVehSelfDriving				=	false;
+bool featureVehShowStats				=	false;
+bool featureVehShouldGameDrive	        =	false;
 bool featureVehWrapInSpawned			=	false;
 
 bool featureWorldMoonGravity			=	false;
@@ -1552,7 +1591,7 @@ void rotate_camera(string msg)
 void process_veh_menu()
 {
 	const float lineWidth = 250.0;
-	const int lineCount = 9;
+	const int lineCount = 10;
 
 	std::string caption = "VEHICLE OPTIONS";
 
@@ -1569,7 +1608,9 @@ void process_veh_menu()
 		{"INVINCIBLE",		&featureVehInvincible, &featureVehInvincibleUpdated},
 		{"STRONG WHEELS",	&featureVehInvincibleWheels, &featureVehInvincibleWheelsUpdated},
 		{"SPEED BOOST",		&featureVehSpeedBoost, NULL},	
-		{"SELF DRIVING",	&featureVehSelfDriving, NULL}		
+		{"SHOW STATS",	    &featureVehShowStats, NULL},
+		{"LET GAME DRIVE",	&featureVehShouldGameDrive, NULL}
+
 	};
 
 	DWORD waitTime = 150;
@@ -1632,117 +1673,122 @@ void process_veh_menu()
 						else
 							set_status_text("player isn't in a vehicle");
 					break;
-				case 8:
-					// self driving car "SELF DRIVING"
-//					PLAYER::SET_ALL_RANDOM_PEDS_FLEE(player, true);
-					
-					showStatus = ! showStatus;
-					set_status_text("Toggling stats");
+//				case 8:
+//					// self driving car "SELF DRIVING"
+////					PLAYER::SET_ALL_RANDOM_PEDS_FLEE(player, true);
+//					featureVehShowStats = ! featureVehShowStats;
+//					showStatus = ! showStatus;
+//					set_status_text("Toggling stats");
+
 //					PLAYER::SET_ALL_RANDOM_PEDS_FLEE_THIS_FRAME(player);
-					if (bPlayerExists && PED::IS_PED_IN_ANY_VEHICLE(playerPed, 0))
-					{
-						
-						DWORD model = ENTITY::GET_ENTITY_MODEL(vehicle);
-
-
-
-						//set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
-
-						bool useHoodCam = true;
-
-						if(useHoodCam)
-						{
-//							CAM::;
-						}
-						else
-						{
-							//DWORD lidarCam = CAM::GET_RENDERING_CAM();s
-
-
-							lidarCam = CAM::CREATE_CAM("default_scripted_camera", 0);
-
-//							lidarCam = CAM::CREATE_CAMERA_WITH_PARAMS("default_scripted_camera", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 2);
-							//CAM::SET_CAM_NEAR_CLIP(a_0._f20, a_0._fC);
-							//CAM::POINT_CAM_AT_ENTITY(l_31D, PLAYER::PLAYER_PED_ID(), 0.0606, 0.04, 0.0745, 0);
-							//                                      x      y     z
-//							CAM::ATTACH_CAM_TO_ENTITY(lidarCam, vehicle, -2.4646, 2.427, 1.3, 1);
-//							CAM::ATTACH_CAM_TO_ENTITY(lidarCam, playerPed,     0.0,   0.0, 1.0, 1);
-//							CAM::ATTACH_CAM_TO_PED_BONE(lidarCam, playerPed, 0, 0.0, 0.0, 1.0, 1);
-//							CAM::SET_CAM_INHERIT_ROLL_VEHICLE(lidarCam, vehicle);
-//							Vector3 coords = CAM::GET_CAM_COORD(lidarCam);
-//							set_status_text(
-//								"lidarCam coords:" + std::to_string(coords.x) 
-//											  + std::to_string(coords.y)
-//											  + std::to_string(coords.z));
-							// /Users/cq/Downloads/gtav.ysc.decompiled/cam_control.c:
-							// if (!CAM::DOES_CAM_EXIST(l_31D)) {
-							//    12          l_31D = CAM::CREATE_CAMERA_WITH_PARAMS(0x19286a9, v_2, v_5, 50.0, 0, 2);
-							//    13:         CAM::ATTACH_CAM_TO_ENTITY(l_31D, PLAYER::PLAYER_PED_ID(), -2.4646, 2.427, 1.3, 1);
-							//    14          CAM::POINT_CAM_AT_ENTITY(l_31D, PLAYER::PLAYER_PED_ID(), 0.0606, 0.04, 0.0745, 0);
-							//    15          CAM::SET_CAM_FOV(l_31D, 50.0);
-							// /Users/cq/Downloads/gtav.ysc.decompiled/b372d/agency_heist3a.c4:
-							//  63793          }
-							//  63794          v_1A._f2 = a_0._f24;
-							//  63795:         CAM::ATTACH_CAM_TO_ENTITY(a_0._f4, a_0._f3, v_1A, 1);
-							//  63796          CAM::POINT_CAM_AT_ENTITY(a_0._f4, a_0._f3, ({0.0, v_11._f1, 0.6 }) + a_0._f34, 1);
-							//  63797          CAM::SET_CAM_PARAMS(a_0._f4, v_17, 0.0, 0.0, 0.0, a_0._f33, 0, 1, 1, 2);
-							//  .....
-							//  82011              a_0._f1 = CAM::CREATE_CAMERA(0x19286a9, 1);
-							//  82012              if (a_1) {
-							//  82013:                 CAM::ATTACH_CAM_TO_ENTITY(a_0._f1, a_0._f5, v_C, 1);
-							//  82014              } else { 
-							//  82015                  CAM::SET_CAM_COORD(a_0._f1, v_9);
-							//  .....
-							//  82019              a_0._f2 = CAM::CREATE_CAMERA(0x19286a9, 1);
-							//  82020              if (a_1 && (!a_4)) {
-							//  82021:                 CAM::ATTACH_CAM_TO_ENTITY(a_0._f2, a_0._f5, v_C + (v_1B * ((vector)a_0._fC)), 1);
-							//  82022              } else { 
-							//  82023                  CAM::SET_CAM_COORD(a_0._f2, v_9 + (v_18 * ((vector)a_0._fC)));
-							//  .....
-							//  82028                  a_0._f4 = CAM::CREATE_CAMERA(0x19286a9, 1);
-							//  82029                  if (a_1 && (!a_4)) {
-							//  82030:                     CAM::ATTACH_CAM_TO_ENTITY(a_0._f4, a_0._f5, v_C + ((v_1B * ((vector)a_0._fC)) * ((vector)a_0._fD)), 1);
-							//  82031                  } else { 
-							//  82032                      CAM::SET_CAM_COORD(a_0._f4, v_9 + ((v_18 * ((vector)a_0._fC)) * ((vector)a_0._fD)));
-							//CAM::SET_CAM_COORD(lidarCam, coords.x, coords.y * 2.0, coords.z);
-	//						set_status_text("changed lidarCam coords y:" + std::to_string(coords.y));
-
-							if (CAM::DOES_CAM_EXIST(lidarCam)) {
-								if (!CAM::IS_CAM_ACTIVE(lidarCam)) {
-									CAM::SET_CAM_ACTIVE(lidarCam, 1);
-									CAM::RENDER_SCRIPT_CAMS(1, 3000, lidarCam, 1, 0);
-
-									//(BOOL render, BOOL ease, Any camera, BOOL p3, BOOL p4) { invoke<Void>(0x07E5B515DB0636FC, render, ease, camera, p3, p4);
-
-									// SET_CAM_POINT_DAMPING_PARAMS - Can we attach to vehichle
-
-									// IS_CAM_COLLIDING - give it physics ?
-
-									// SET_CAM_INHERIT_ROLL_PED
-
-									// SET_CAM_INHERIT_ROLL_VEHICLE
-
-									// SET_CAM_PROPAGATE
-
-									// SET_CAM_INHERIT_ROLL_OBJECT
-
-									// GAMEPLAY::SET_TIME_SCALE(1.0)
-
-									// CAMERA INTERPOLATION AS WELL to reduce shock absorbing
-
-									// CAM_IS_SPHERE_VISIBLE
-
-								}
-							}
-						}
-					} 
-					else 
-					{
-						set_status_text("get a ride!");
-						CAM::RENDER_SCRIPT_CAMS(0, 3000, 0, 0, 0);
-					}
-					break;
+//					if (bPlayerExists && PED::IS_PED_IN_ANY_VEHICLE(playerPed, 0))
+//					{
+//						
+//						DWORD model = ENTITY::GET_ENTITY_MODEL(vehicle);
+//
+//
+//
+//						//set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
+//
+//						bool useHoodCam = true;
+//
+//						if(useHoodCam)
+//						{
+////							CAM::;
+//						}
+//						else
+//						{
+//							//DWORD lidarCam = CAM::GET_RENDERING_CAM();s
+//
+//
+//							lidarCam = CAM::CREATE_CAM("default_scripted_camera", 0);
+//
+////							lidarCam = CAM::CREATE_CAMERA_WITH_PARAMS("default_scripted_camera", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 2);
+//							//CAM::SET_CAM_NEAR_CLIP(a_0._f20, a_0._fC);
+//							//CAM::POINT_CAM_AT_ENTITY(l_31D, PLAYER::PLAYER_PED_ID(), 0.0606, 0.04, 0.0745, 0);
+//							//                                      x      y     z
+////							CAM::ATTACH_CAM_TO_ENTITY(lidarCam, vehicle, -2.4646, 2.427, 1.3, 1);
+////							CAM::ATTACH_CAM_TO_ENTITY(lidarCam, playerPed,     0.0,   0.0, 1.0, 1);
+////							CAM::ATTACH_CAM_TO_PED_BONE(lidarCam, playerPed, 0, 0.0, 0.0, 1.0, 1);
+////							CAM::SET_CAM_INHERIT_ROLL_VEHICLE(lidarCam, vehicle);
+////							Vector3 coords = CAM::GET_CAM_COORD(lidarCam);
+////							set_status_text(
+////								"lidarCam coords:" + std::to_string(coords.x) 
+////											  + std::to_string(coords.y)
+////											  + std::to_string(coords.z));
+//							// /Users/cq/Downloads/gtav.ysc.decompiled/cam_control.c:
+//							// if (!CAM::DOES_CAM_EXIST(l_31D)) {
+//							//    12          l_31D = CAM::CREATE_CAMERA_WITH_PARAMS(0x19286a9, v_2, v_5, 50.0, 0, 2);
+//							//    13:         CAM::ATTACH_CAM_TO_ENTITY(l_31D, PLAYER::PLAYER_PED_ID(), -2.4646, 2.427, 1.3, 1);
+//							//    14          CAM::POINT_CAM_AT_ENTITY(l_31D, PLAYER::PLAYER_PED_ID(), 0.0606, 0.04, 0.0745, 0);
+//							//    15          CAM::SET_CAM_FOV(l_31D, 50.0);
+//							// /Users/cq/Downloads/gtav.ysc.decompiled/b372d/agency_heist3a.c4:
+//							//  63793          }
+//							//  63794          v_1A._f2 = a_0._f24;
+//							//  63795:         CAM::ATTACH_CAM_TO_ENTITY(a_0._f4, a_0._f3, v_1A, 1);
+//							//  63796          CAM::POINT_CAM_AT_ENTITY(a_0._f4, a_0._f3, ({0.0, v_11._f1, 0.6 }) + a_0._f34, 1);
+//							//  63797          CAM::SET_CAM_PARAMS(a_0._f4, v_17, 0.0, 0.0, 0.0, a_0._f33, 0, 1, 1, 2);
+//							//  .....
+//							//  82011              a_0._f1 = CAM::CREATE_CAMERA(0x19286a9, 1);
+//							//  82012              if (a_1) {
+//							//  82013:                 CAM::ATTACH_CAM_TO_ENTITY(a_0._f1, a_0._f5, v_C, 1);
+//							//  82014              } else { 
+//							//  82015                  CAM::SET_CAM_COORD(a_0._f1, v_9);
+//							//  .....
+//							//  82019              a_0._f2 = CAM::CREATE_CAMERA(0x19286a9, 1);
+//							//  82020              if (a_1 && (!a_4)) {
+//							//  82021:                 CAM::ATTACH_CAM_TO_ENTITY(a_0._f2, a_0._f5, v_C + (v_1B * ((vector)a_0._fC)), 1);
+//							//  82022              } else { 
+//							//  82023                  CAM::SET_CAM_COORD(a_0._f2, v_9 + (v_18 * ((vector)a_0._fC)));
+//							//  .....
+//							//  82028                  a_0._f4 = CAM::CREATE_CAMERA(0x19286a9, 1);
+//							//  82029                  if (a_1 && (!a_4)) {
+//							//  82030:                     CAM::ATTACH_CAM_TO_ENTITY(a_0._f4, a_0._f5, v_C + ((v_1B * ((vector)a_0._fC)) * ((vector)a_0._fD)), 1);
+//							//  82031                  } else { 
+//							//  82032                      CAM::SET_CAM_COORD(a_0._f4, v_9 + ((v_18 * ((vector)a_0._fC)) * ((vector)a_0._fD)));
+//							//CAM::SET_CAM_COORD(lidarCam, coords.x, coords.y * 2.0, coords.z);
+//	//						set_status_text("changed lidarCam coords y:" + std::to_string(coords.y));
+//
+//							if (CAM::DOES_CAM_EXIST(lidarCam)) {
+//								if (!CAM::IS_CAM_ACTIVE(lidarCam)) {
+//									CAM::SET_CAM_ACTIVE(lidarCam, 1);
+//									CAM::RENDER_SCRIPT_CAMS(1, 3000, lidarCam, 1, 0);
+//
+//									//(BOOL render, BOOL ease, Any camera, BOOL p3, BOOL p4) { invoke<Void>(0x07E5B515DB0636FC, render, ease, camera, p3, p4);
+//
+//									// SET_CAM_POINT_DAMPING_PARAMS - Can we attach to vehichle
+//
+//									// IS_CAM_COLLIDING - give it physics ?
+//
+//									// SET_CAM_INHERIT_ROLL_PED
+//
+//									// SET_CAM_INHERIT_ROLL_VEHICLE
+//
+//									// SET_CAM_PROPAGATE
+//
+//									// SET_CAM_INHERIT_ROLL_OBJECT
+//
+//									// GAMEPLAY::SET_TIME_SCALE(1.0)
+//
+//									// CAMERA INTERPOLATION AS WELL to reduce shock absorbing
+//
+//									// CAM_IS_SPHERE_VISIBLE
+//
+//								}
+//							}
+//						}
+//					} 
+//					else 
+//					{
+//						set_status_text("get a ride!");
+//						CAM::RENDER_SCRIPT_CAMS(0, 3000, 0, 0, 0);
+//					}
+//					break;
 				// switchable features
+//				case 9:
+//					shouldWander = !shouldWander;
+//					*lines[activeLineIndexVeh].pState = !(*lines[activeLineIndexVeh].pState);
+//					break;
 				default:
 					if (lines[activeLineIndexVeh].pState)
 						*lines[activeLineIndexVeh].pState = !(*lines[activeLineIndexVeh].pState);
@@ -2307,7 +2353,8 @@ void reset_globals()
 	featureVehSeatbelt					=
 	featureVehSeatbeltUpdated			=
 	featureVehSpeedBoost				=
-	featureVehSelfDriving				=
+	featureVehShowStats				    =
+	featureVehShouldGameDrive      	    =
 	featureVehWrapInSpawned				=
 	featureWorldMoonGravity				=
 	featureTimePaused					=
@@ -2353,6 +2400,7 @@ void Cleanup()
 {
 	shouldRunAlignCam = false;
 	shouldSelfDrive = false;
+	logFile.close();
 //	(*alignCameraThread).join();
 //	delete alignCameraThread;
 }
@@ -2654,23 +2702,95 @@ double TREVOR_ROAD_END_X = 2054.696533;
 double TREVOR_ROAD_END_Y = 3729.036133;
 double TREVOR_ROAD_END_Z = 32.656715;
 
+double WINDY_END_X = -2090.888184;
+double WINDY_END_Y = 2298.642578;
+double WINDY_END_Z = 37.532829;
+
+double WINDY_BEGIN_X = -2648.517334;
+double WINDY_BEGIN_Y = 1498.584106;
+double WINDY_BEGIN_Z = 118.599236;
+
 bool should_reset = true;
+
 
 // Mount Chiliad 247 Supermarket: x: 1722.844727  y:  6407.962891  z: 33.628269
 // Franklin's street:              x:  -23.898239  y: -1439.207520  z: 30.273796
 
+
+void perform_temp_vehicle_action(Ped player_ped, int vehicle, SharedRewardData* shared)
+{
+// Can't turn off, so just toggle to get some exploration in
+//				WAIT(1000); // Don't wait here, we'll delay speed and spin metrics and get out of sync with steer / throttle from 
+//				AI::TASK_VEHICLE_DRIVE_WANDER(player_ped, vehicle, 10.0, 786603);
+//				featureVehShouldWander = true;
+	// 1, 7, 8, 23
+	// Actions:
+	//'1 - brake
+	//'3 - brake + reverse
+	//'4 - turn left 90 + braking
+	//'5 - turn right 90 + braking
+	//'6 - brake strong (handbrake?) until time ends
+	//'7 - turn left + accelerate
+	//'7 - turn right + accelerate
+	//'9 - weak acceleration
+	//'10 - turn left + restore wheel pos to center in the end
+	//'11 - turn right + restore wheel pos to center in the end
+	//'13 - turn left + go reverse
+	//'14 - turn left + go reverse
+	//'16 - crash the game after like 2 seconds :)
+	//'17 - keep actual state, game crashed after few tries
+	//'18 - game crash
+	//'19 - strong brake + turn left/right
+	//'20 - weak brake + turn left then turn right
+	//'21 - weak brake + turn right then turn left
+	//'22 - brake + reverse
+	//'23 - accelerate fast
+	//'24 - brake
+	//'25 - brake turning left then when almost stopping it turns left more
+	//'26 - brake turning right then when almost stopping it turns right more
+	//'27 - brake until car stop or until time ends
+	//'28 - brake + strong reverse acceleration
+	//'30 - performs a burnout (brake until stop + brake and accelerate)
+	//'31 - accelerate in neutral
+	//'32 - accelerate very strong
+	
+	int time = 100;
+
+	if(! shared->should_perform_random_action)
+	{
+		// Do minimal action to disengage game AI
+		AI::TASK_VEHICLE_TEMP_ACTION(player_ped, vehicle, 9, time);
+	}
+	else
+	{
+		vector<int> temp_actions({
+			1, // brake
+			7, // right + accelerate
+			8, // left + accelerate
+			23 // strong accelerate
+		});
+		int action = *select_randomly(temp_actions.begin(), temp_actions.end());
+		AI::TASK_VEHICLE_TEMP_ACTION(player_ped, vehicle, action, time);
+	}
+}
 
 void AgentCom()
 {
 	SharedRewardData* shared_reward_memory;
 	InitializeSharedRewardMemory(&shared_reward_memory);
 	set_status_text("initialized shared memory");
+	logFile.open("native-trainver-log.txt");
+	logFile << "start of log file" << endl;
+	logFile.close();
 	Player player_id;
 	Ped player_ped;
 	int vehicle = -1;
 	int new_vehicle = -1;
 	long long iter = 0;
 	int control = 0;
+	bool isGameDriving = featureVehShouldGameDrive;
+	shared_reward_memory->should_game_drive = featureVehShouldGameDrive;
+	bool hasGameDriven = false;
 
 	while(shouldSelfDrive)
 	{
@@ -2679,6 +2799,12 @@ void AgentCom()
 		if(iter % 100 == 0)
 		{
 			new_vehicle = PED::GET_VEHICLE_PED_IS_USING(PLAYER::PLAYER_PED_ID());		
+		}
+
+		if(iter % 500 == 0) // 5 seconds
+		{
+			logFile.close();
+			logFile.open("native-trainver-log.txt", std::ios_base::app | std::ios_base::out);
 		}
 
 		iter++;
@@ -2697,7 +2823,6 @@ void AgentCom()
 		else if(should_reset || shared_reward_memory->should_reset_agent)
 		{
 //			set_status_text("SELF-DRIVING MODE    ...Is that you, Michael?");
-			should_reset = false;
 			player_id = PLAYER::PLAYER_ID();
 			player_ped = PLAYER::PLAYER_PED_ID();
 			vehicle = PED::GET_VEHICLE_PED_IS_USING(player_ped);
@@ -2716,14 +2841,18 @@ void AgentCom()
 			VEHICLE::SET_VEHICLE_TYRES_CAN_BURST(vehicle, FALSE);
 			VEHICLE::SET_VEHICLE_WHEELS_CAN_BREAK(vehicle, FALSE);
 			VEHICLE::SET_VEHICLE_HAS_STRONG_AXLES(vehicle, TRUE);
+
 			VEHICLE::SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED(vehicle, FALSE);
 			ENTITY::SET_ENTITY_INVINCIBLE(vehicle, TRUE);
 			ENTITY::SET_ENTITY_PROOFS(vehicle, 1, 1, 1, 1, 1, 1, 1, 1);	
 
 			// Player invinsible
 			PLAYER::SET_PLAYER_INVINCIBLE(player_id, TRUE);
-//			AI::TASK_VEHICLE_DRIVE_WANDER(player_ped, vehicle, 20.0, 786667);
 
+			// Driving characteristics
+			PED::SET_DRIVER_AGGRESSIVENESS(player_ped, 0.0);
+			PED::SET_DRIVER_ABILITY(player_ped, 1.0);
+			
 			// Get change in heading so you can steer to match
 			// Get change in velocity so you can steer / brake to match
 
@@ -2753,6 +2882,7 @@ void AgentCom()
 //				ENTITY::SET_ENTITY_HEADING(vehicle, 209.866089);
 //				
 //			}
+//			set_status_text("SELF-DRIVING MODE    ...Okay, let's go!");
 			(*shared_reward_memory).should_reset_agent = false;
 			should_reset = false;
 		}
@@ -2782,24 +2912,48 @@ void AgentCom()
 //			CONTROLS::_0xE8A25867FBA3B05E(0, 9, 0); // Set control normal
 //			CONTROLS::_0xE8A25867FBA3B05E(0, 8, 1); // Set control normal
 
+			
+			if( ! isGameDriving && (shared_reward_memory->should_game_drive || featureVehShouldGameDrive))
+			{
+				AI::TASK_VEHICLE_DRIVE_WANDER(player_ped, vehicle, 10.0, 786603);
+				std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Give time to take back control.
+				shared_reward_memory->is_game_driving = true;
+				isGameDriving = true;
+				hasGameDriven = true;
+				featureVehShouldGameDrive = true;
+				shared_reward_memory->should_game_drive = true;
+			}
+			else if(isGameDriving && (!shared_reward_memory->should_game_drive || !featureVehShouldGameDrive))
+			{
+				shared_reward_memory->is_game_driving = false;
+				isGameDriving = false;
+				featureVehShouldGameDrive = false;
+				shared_reward_memory->should_game_drive = false;
+//				if(hasGameDriven)
+//				{
+					// We can't turn off wandering, but we can act randomly.
+					perform_temp_vehicle_action(player_ped, vehicle, shared_reward_memory);
+
+//				}
+			}
+
 			Vector3 vehCoords = ENTITY::GET_ENTITY_COORDS(vehicle, true);
 			double heading = ENTITY::GET_ENTITY_HEADING(vehicle);
-			double speed = ENTITY::GET_ENTITY_SPEED(vehicle);
-			
-			auto rotational_velocity = ENTITY::GET_ENTITY_ROTATION_VELOCITY(vehicle);
+//			double speed = ENTITY::GET_ENTITY_SPEED(vehicle);
+//			Vector3 forward = ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle);
+			Vector3 speed = ENTITY::GET_ENTITY_SPEED_VECTOR(vehicle, true);
+			auto spin = ENTITY::GET_ENTITY_ROTATION_VELOCITY(vehicle);
 
-			(*shared_reward_memory).heading = heading;
-			(*shared_reward_memory).speed = speed;
-
-//			if(shared_reward_memory->desired_heading > -128)
-//			{
-//				ENTITY::SET_ENTITY_HEADING(vehicle, shared_reward_memory->desired_heading);
-//			}
-//
 //			auto forward_vector = ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle);
-//			if(shared_reward_memory->desired_speed > -128)
+//			if(shared_reward_memory->desired_spin > -128)
 //			{
-//				ENTITY::SET_ENTITY_VELOCITY(vehicle, forward_vector.x * 5, forward_vector.y * 5, forward_vector.z * 5);//6.918115, 3.922368, 0.065919);
+////				ENTITY::SET_ENTITYa_ROTATIONAL_VELOCITY(vehicle, shared_reward_memory->desired_heading);
+//				logFile << "spin:\t" << spin.z << "\tdesired_direction:\t" << shared_reward_memory->desired_direction 
+//					<< "\tdesired_spin:\t" << shared_reward_memory->desired_spin;
+//				double magnitude = shared_reward_memory->desired_speed / speed;
+////				ENTITY::SET_ENTITY_VELOCITY(vehicle, forward_vector.x * magnitude, forward_vector.y * magnitude, forward_vector.z * magnitude);
+//				logFile << "\tspeed:\t" << speed.y << "\tdesired_speed:\t" << shared_reward_memory->desired_speed;
+//				logFile << "\tdesired_speed_change:\t" << shared_reward_memory->desired_speed_change << endl;
 //			}
 
 			bool point_on_road = PATHFIND::IS_POINT_ON_ROAD(vehCoords.x, vehCoords.y, vehCoords.z, vehicle);
@@ -2812,36 +2966,40 @@ void AgentCom()
 				status += "on road: no\n ";
 			}
 			
-			status += "x: "  + std::to_string(vehCoords.x)            + "\n" 
-//					  "y: "  + std::to_string(vehCoords.y)            +	"\n" 
-//					  "z: "  + std::to_string(vehCoords.z)            + "\n" 
-					  "h: "  + std::to_string(heading)	              + "\n"
-					  "rx: " + std::to_string(rotational_velocity.x)  + "\n"
-					  "ry: " + std::to_string(rotational_velocity.y)  + "\n"
-					  "rz: " + std::to_string(rotational_velocity.z)  + "\n";
-			
-
-			double distance = sqrt( pow(TREVOR_ROAD_END_X - double(vehCoords.x), 2) + 
-				  pow(TREVOR_ROAD_END_Y - double(vehCoords.y), 2) + 
-				  pow(TREVOR_ROAD_END_Z - double(vehCoords.z), 2));
+			double distance = sqrt( 
+				  pow(WINDY_BEGIN_X - double(vehCoords.x), 2) + 
+				  pow(WINDY_BEGIN_Y - double(vehCoords.y), 2) + 
+				  pow(WINDY_BEGIN_Z - double(vehCoords.z), 2));
 
 			// Doesn't return more than 100000.
 //			float distance = PATHFIND::CALCULATE_TRAVEL_DISTANCE_BETWEEN_POINTS(
 //				vehCoords.x, vehCoords.y, vehCoords.z,
 //				CHILIAD_X, CHILIAD_Y, CHILIAD_Z);
 
+//			status += "distance: " + std::to_string(distance);
 
-			status += "distance: " + std::to_string(distance);
+			status += "Game driving: " + std::to_string(isGameDriving) + "\n"
+//					  "should wander: " + std::to_string(shared_reward_memory->should_wander) + "\n"
+//					  "wanderFeature: " + std::to_string(featureVehShouldWander) + "\n"
+//					  "should reset: " + std::to_string((*shared_reward_memory).should_reset_agent) + "\n"
+					  "sx: "  + std::to_string(speed.x)   + "\n" 
+					  "sy: "  + std::to_string(speed.y)   + "\n" 
+					  "sz: "  + std::to_string(speed.z)   + "\n"
+//					  "h: "  + std::to_string(heading)	     + "\n"
+					  "rz: " + std::to_string(spin.z)        + "\n"
+			;
 
-			if(showStatus)
+			if(featureVehShowStats)
 			{
 				set_status_text(status);				
 			}
 
 
-			(*shared_reward_memory).distance = distance;
-			(*shared_reward_memory).on_road = point_on_road;
-			(*shared_reward_memory).rotational_velocity = rotational_velocity.z;
+			(*shared_reward_memory).distance   = distance;
+			(*shared_reward_memory).on_road    = point_on_road;
+			(*shared_reward_memory).spin       = spin.z;
+			(*shared_reward_memory).heading    = heading;
+			(*shared_reward_memory).speed      = speed.y;
 		}
 	}
 }

@@ -1,4 +1,4 @@
-﻿Build started 3/18/2016 1:10:02 PM.
+﻿Build started 6/26/2016 6:11:49 PM.
      1>Project "C:\Users\a\Dropbox\ScriptHookV_SDK_1.0.372.2a\samples\NativeTrainer\NativeTrainer.vcxproj" on node 2 (Build target(s)).
      1>Building with tools version "12.0".
      1>Target "_CheckForInvalidConfigurationAndPlatform" in file "C:\Program Files (x86)\MSBuild\12.0\bin\Microsoft.Common.CurrentVersion.targets" from project "C:\Users\a\Dropbox\ScriptHookV_SDK_1.0.372.2a\samples\NativeTrainer\NativeTrainer.vcxproj" (entry point):
@@ -136,7 +136,7 @@
        Done executing task "WriteLinesToFile".
        Using "Touch" task from assembly "Microsoft.Build.Tasks.v12.0, Version=12.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a".
        Task "Touch"
-         Creating "tmp\Release\NativeTrainer.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "tmp\Release\NativeTrainer.tlog\unsuccessfulbuild".
        Done executing task "Touch".
      1>Done building target "InitializeBuildStatus" in project "NativeTrainer.vcxproj".
        Target "AssignProjectConfiguration" skipped. Previously built successfully.
@@ -231,16 +231,16 @@
          	C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\KEYBOARD.OBJ
          	C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\MAIN.OBJ
          	C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\SCRIPT.OBJ
-         script.cpp will be compiled as C:\Users\a\Dropbox\ScriptHookV_SDK_1.0.372.2a\samples\NativeTrainer\script.cpp was modified at 3/18/2016 1:09:44 PM.
+         script.cpp will be compiled as it was not found in the tracking log.
          Outputs for C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\SCRIPT.CPP:
          	C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\SCRIPT.OBJ
          Write Tracking Logs:
          	tmp\Release\NativeTrainer.tlog\cl.write.1.tlog
          Environment Variables passed to tool:
-           VS_UNICODE_OUTPUT=1456
+           VS_UNICODE_OUTPUT=1508
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /O2 /Oi /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D NativeTrainer_EXPORTS /D _WINDLL /D _MBCS /Gm- /EHsc /MT /GS /Gy /fp:fast /Zc:wchar_t /Zc:forScope /Fo"tmp\Release\\" /Fd"tmp\Release\vc120.pdb" /Gd /TP /errorReport:prompt script.cpp
          Tracking command:
-         C:\Program Files (x86)\MSBuild\12.0\bin\Tracker.exe /d "C:\Program Files (x86)\MSBuild\12.0\bin\FileTracker.dll" /i C:\Users\a\Dropbox\ScriptHookV_SDK_1.0.372.2a\samples\NativeTrainer\tmp\Release\NativeTrainer.tlog /r C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\SCRIPT.CPP /b MSBuildConsole_CancelEventad4b3058696e4e18a88f73617c4581cb  /c "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe"  /c /Zi /nologo /W3 /WX- /O2 /Oi /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D NativeTrainer_EXPORTS /D _WINDLL /D _MBCS /Gm- /EHsc /MT /GS /Gy /fp:fast /Zc:wchar_t /Zc:forScope /Fo"tmp\Release\\" /Fd"tmp\Release\vc120.pdb" /Gd /TP /errorReport:prompt script.cpp
+         C:\Program Files (x86)\MSBuild\12.0\bin\Tracker.exe /d "C:\Program Files (x86)\MSBuild\12.0\bin\FileTracker.dll" /i C:\Users\a\Dropbox\ScriptHookV_SDK_1.0.372.2a\samples\NativeTrainer\tmp\Release\NativeTrainer.tlog /r C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\SCRIPT.CPP /b MSBuildConsole_CancelEvent38f6535e8b214c3d907a278289a80a6d  /c "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe"  /c /Zi /nologo /W3 /WX- /O2 /Oi /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D NativeTrainer_EXPORTS /D _WINDLL /D _MBCS /Gm- /EHsc /MT /GS /Gy /fp:fast /Zc:wchar_t /Zc:forScope /Fo"tmp\Release\\" /Fd"tmp\Release\vc120.pdb" /Gd /TP /errorReport:prompt script.cpp
          script.cpp
      1>c:\program files (x86)\microsoft directx sdk (june 2010)\include\dxgitype.h(12): warning C4005: 'DXGI_STATUS_OCCLUDED' : macro redefinition
                  C:\Program Files (x86)\Windows Kits\8.1\Include\shared\winerror.h(50092) : see previous definition of 'DXGI_STATUS_OCCLUDED'
@@ -302,14 +302,14 @@
                  C:\Program Files (x86)\Windows Kits\8.1\Include\shared\sdkddkver.h(215) : see previous definition of 'WINVER'
      1>c:\users\a\dropbox\scripthookv_sdk_1.0.372.2a\samples\nativetrainer\GraphicsCaptureHook.h(24): warning C4005: '_WIN32_WINNT' : macro redefinition
                  C:\Program Files (x86)\Windows Kits\8.1\Include\shared\sdkddkver.h(200) : see previous definition of '_WIN32_WINNT'
-     1>script.cpp(2386): warning C4018: '>=' : signed/unsigned mismatch
-     1>script.cpp(2386): warning C4018: '<' : signed/unsigned mismatch
-     1>script.cpp(2420): warning C4101: 'w' : unreferenced local variable
-     1>script.cpp(2420): warning C4101: 'y' : unreferenced local variable
-     1>script.cpp(2420): warning C4101: 'z' : unreferenced local variable
-     1>script.cpp(2612): warning C4018: '<' : signed/unsigned mismatch
-     1>script.cpp(2614): warning C4018: '<' : signed/unsigned mismatch
-     1>script.cpp(2805): warning C4800: 'BOOL' : forcing value to bool 'true' or 'false' (performance warning)
+     1>script.cpp(2434): warning C4018: '>=' : signed/unsigned mismatch
+     1>script.cpp(2434): warning C4018: '<' : signed/unsigned mismatch
+     1>script.cpp(2468): warning C4101: 'w' : unreferenced local variable
+     1>script.cpp(2468): warning C4101: 'y' : unreferenced local variable
+     1>script.cpp(2468): warning C4101: 'z' : unreferenced local variable
+     1>script.cpp(2660): warning C4018: '<' : signed/unsigned mismatch
+     1>script.cpp(2662): warning C4018: '<' : signed/unsigned mismatch
+     1>script.cpp(2959): warning C4800: 'BOOL' : forcing value to bool 'true' or 'false' (performance warning)
        Done executing task "CL".
      1>Done building target "ClCompile" in project "NativeTrainer.vcxproj".
        Target "ManagedIncrementalBuildPostProcessDependencyGraph" skipped, due to false condition; ('@(ClCompile)' != '' and '$(EnableManagedIncrementalBuild)' == 'True') was evaluated as ('keyboard.cpp;main.cpp;script.cpp' != '' and 'false' == 'True').
@@ -452,19 +452,18 @@
          	C:\PROGRAM FILES (X86)\MICROSOFT VISUAL STUDIO 12.0\VC\LIB\AMD64\LIBCPMT.LIB
          	C:\PROGRAM FILES (X86)\MICROSOFT DIRECTX SDK (JUNE 2010)\LIB\X64\D3D11.LIB
          	C:\PROGRAM FILES (X86)\MICROSOFT VISUAL STUDIO 12.0\VC\BIN\X86_AMD64\1033\LINKUI.DLL
-         	C:\PROGRAM FILES (X86)\MICROSOFT VISUAL STUDIO 12.0\VC\BIN\MSPDBSRV.EXE
          	C:\PROGRAM FILES (X86)\WINDOWS KITS\8.1\BIN\X86\RC.EXE
          	C:\PROGRAM FILES (X86)\MICROSOFT VISUAL STUDIO 12.0\VC\BIN\CVTRES.EXE
          	C:\WINDOWS\SYSTEM32\TZRES.DLL
          	C:\WINDOWS\SYSTEM32\RSAENH.DLL
          Source compilation required: input C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\SCRIPT.OBJ is newer than output C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\BIN\RELEASE\NATIVETRAINER.ASI.
          Environment Variables passed to tool:
-           VS_UNICODE_OUTPUT=1448
+           VS_UNICODE_OUTPUT=1504
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"bin\Release\NativeTrainer.asi" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"bin\Release\NativeTrainer.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"bin\Release\NativeTrainer.lib" /MACHINE:X64 ..\..\lib\ScriptHookV.lib /DLL tmp\Release\keyboard.obj
          tmp\Release\main.obj
          tmp\Release\script.obj
          Tracking command:
-         C:\Program Files (x86)\MSBuild\12.0\bin\Tracker.exe /a /d "C:\Program Files (x86)\MSBuild\12.0\bin\FileTracker.dll" /i C:\Users\a\Dropbox\ScriptHookV_SDK_1.0.372.2a\samples\NativeTrainer\tmp\Release\NativeTrainer.tlog /r "C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\KEYBOARD.OBJ|C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\MAIN.OBJ|C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\SCRIPT.OBJ" /b MSBuildConsole_CancelEventf1e14662c3834fc7b5cf633631ab4819  /c "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe"  /ERRORREPORT:PROMPT /OUT:"bin\Release\NativeTrainer.asi" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"bin\Release\NativeTrainer.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"bin\Release\NativeTrainer.lib" /MACHINE:X64 ..\..\lib\ScriptHookV.lib /DLL tmp\Release\keyboard.obj
+         C:\Program Files (x86)\MSBuild\12.0\bin\Tracker.exe /a /d "C:\Program Files (x86)\MSBuild\12.0\bin\FileTracker.dll" /i C:\Users\a\Dropbox\ScriptHookV_SDK_1.0.372.2a\samples\NativeTrainer\tmp\Release\NativeTrainer.tlog /r "C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\KEYBOARD.OBJ|C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\MAIN.OBJ|C:\USERS\A\DROPBOX\SCRIPTHOOKV_SDK_1.0.372.2A\SAMPLES\NATIVETRAINER\TMP\RELEASE\SCRIPT.OBJ" /b MSBuildConsole_CancelEventc80091b7d84848aeaa214eb89b684985  /c "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe"  /ERRORREPORT:PROMPT /OUT:"bin\Release\NativeTrainer.asi" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"bin\Release\NativeTrainer.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"bin\Release\NativeTrainer.lib" /MACHINE:X64 ..\..\lib\ScriptHookV.lib /DLL tmp\Release\keyboard.obj
          tmp\Release\main.obj
          tmp\Release\script.obj
          Generating code
@@ -600,4 +599,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:07.38
+Time Elapsed 00:00:06.08
