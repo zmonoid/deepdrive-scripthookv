@@ -67,30 +67,6 @@ void copyDepthResources(IDXGISwapChain *swap);
 int cq_height;
 int cq_width;
 
-// Reward shared memory
-
-#define REWARD_SHARED_MEMORY TEXT("Local\\AgentReward")
-
-struct SharedRewardData
-{
-	double distance;
-	bool on_road;
-	bool should_reset_agent;
-	double heading;
-	double speed;
-	double desired_spin; // for directly setting spin, intermediate step to real control
-	double desired_speed; // for directly setting speed, intermediate step to real control
-	double desired_speed_change; // for directly setting speed change, intermediate step to real control
-	double desired_direction;
-	double spin;
-	bool should_game_drive;
-	bool should_perform_random_action;
-	bool is_game_driving;
-	int temp_action;
-};
-
-HANDLE rewardFileMap;
-LPBYTE lpRewardSharedMemory = NULL;
 std::random_device random_seed;     // only used once to initialise (seed) engine
 std::mt19937 random_generator(random_seed());    // random-number engine used (Mersenne-Twister in this case)
 
@@ -123,6 +99,31 @@ inline double get_random_double(double start, double end)
 	auto random_double = uni(random_generator);
 	return random_double;
 }
+
+// Reward shared memory
+
+#define REWARD_SHARED_MEMORY TEXT("Local\\AgentReward")
+
+struct SharedRewardData
+{
+	double distance;
+	bool on_road;
+	bool should_reset_agent;
+	double heading;
+	double speed;
+	double desired_spin; // for directly setting spin, intermediate step to real control
+	double desired_speed; // for directly setting speed, intermediate step to real control
+	double desired_speed_change; // for directly setting speed change, intermediate step to real control
+	double desired_direction;
+	double spin;
+	bool should_game_drive;
+	bool should_perform_random_action;
+	bool is_game_driving;
+	int temp_action;
+};
+
+HANDLE rewardFileMap;
+LPBYTE lpRewardSharedMemory = NULL;
 
 void InitializeSharedRewardMemory(SharedRewardData **rewardData)
 {
@@ -2938,7 +2939,7 @@ void AgentCom()
 			}
 
 			Vector3 vehCoords = ENTITY::GET_ENTITY_COORDS(vehicle, true);
-			double heading = ENTITY::GET_ENTITY_HEADING(vehicle);
+			double heading = ENTITY::GET_ENTITY_HEADING(vehicle); // physics heading?
 //			double speed = ENTITY::GET_ENTITY_SPEED(vehicle);
 //			Vector3 forward = ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle);
 			Vector3 speed = ENTITY::GET_ENTITY_SPEED_VECTOR(vehicle, true);
